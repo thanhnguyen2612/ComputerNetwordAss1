@@ -50,8 +50,7 @@ class ServerWorker:
 		seq = request[1].split(' ')
 		
 		# Process SETUP request
-		if requestType == self.SETUP:
-			if self.state == self.INIT:
+		if requestType == self.SETUP and self.state == self.INIT:
 				# Update state
 				print("processing SETUP\n")
 				
@@ -71,8 +70,7 @@ class ServerWorker:
 				self.clientInfo['rtpPort'] = request[2].split(' ')[3]
 		
 		# Process PLAY request 		
-		elif requestType == self.PLAY:
-			if self.state == self.READY:
+		elif requestType == self.PLAY and self.state == self.READY:
 				print("processing PLAY\n")
 				self.state = self.PLAYING
 				
@@ -87,8 +85,7 @@ class ServerWorker:
 				self.clientInfo['worker'].start()
 		
 		# Process PAUSE request
-		elif requestType == self.PAUSE:
-			if self.state == self.PLAYING:
+		elif requestType == self.PAUSE and self.state == self.PLAYING:
 				print("processing PAUSE\n")
 				self.state = self.READY
 				
