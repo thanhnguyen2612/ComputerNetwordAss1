@@ -74,5 +74,4 @@ class RtpPacket:
 		
 	def getPacket(self):
 		"""Return RTP packet."""
->>>>>>> Remove SETUP, embed STOP button restart function
 		return self.header + self.payload
