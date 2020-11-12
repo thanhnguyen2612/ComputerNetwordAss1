@@ -40,12 +40,6 @@ class Client:
 	# THIS GUI IS JUST FOR REFERENCE ONLY, STUDENTS HAVE TO CREATE THEIR OWN GUI 	
 	def createWidgets(self):
 		"""Build GUI."""
-		# Create Setup button
-		# self.setup = Button(self.master, width=20, padx=3, pady=3)
-		# self.setup["text"] = "Setup"
-		# self.setup["command"] = self.setupMovie
-		# self.setup.grid(row=1, column=0, padx=2, pady=2)
-		
 		# Create Play button		
 		self.start = Button(self.master, width=20, padx=3, pady=3)
 		self.start["text"] = "Play"
