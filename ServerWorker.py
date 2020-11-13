@@ -4,6 +4,8 @@ import sys, traceback, threading, socket
 from VideoStream import VideoStream
 from RtpPacket import RtpPacket
 
+import random
+
 class ServerWorker:
 	SETUP = 'SETUP'
 	PLAY = 'PLAY'
@@ -114,11 +116,50 @@ class ServerWorker:
 
 			# Close the RTP socket
 			self.clientInfo['rtpSocket'].close()
-		
+			
 		# Process DESCRIBE request
 		elif requestType == self.DESCRIBE:
 			print("processing DESCRIBE\n")
 			self.replyRtsp(self.OK_200, seq[1])
+
+	# # Testing packet loss function
+	# def sendRtp(self):
+	# 	"""Send RTP packets over UDP."""
+	# 	late_packet = []
+	# 	while True:
+	# 		self.clientInfo['event'].wait(0.05)
+
+	# 		# Stop sending if request is PAUSE or TEARDOWN
+	# 		if self.clientInfo['event'].isSet():
+	# 			break
+			
+	# 		data = self.clientInfo['videoStream'].nextFrame()
+	# 		if data:
+	# 			if random.random() < 0.2: # Simulate: 20% of packets are late
+	# 				frameNumber = self.clientInfo['videoStream'].frameNbr()
+	# 				rtpPacket = self.makeRtp(data, frameNumber)
+	# 				late_packet.append(rtpPacket)
+	# 				continue
+
+	# 			frameNumber = self.clientInfo['videoStream'].frameNbr()
+	# 			try:
+	# 				address = self.clientInfo['rtspSocket'][1][0]
+	# 				port = int(self.clientInfo['rtpPort'])
+	# 				self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
+	# 			except:
+	# 				print("Connection Error")
+	# 		else:
+	# 			print(len(late_packet))
+	# 			while late_packet:
+	# 				self.clientInfo['event'].wait(0.05)
+	# 				rtpPacket = late_packet.pop()
+	# 				try:
+	# 					address = self.clientInfo['rtspSocket'][1][0]
+	# 					port = int(self.clientInfo['rtpPort'])
+	# 					self.clientInfo['rtpSocket'].sendto(rtpPacket,(address,port))
+	# 				except:
+	# 					print("Connection Error")
+	# 			break
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
