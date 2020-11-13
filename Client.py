@@ -47,7 +47,7 @@ class Client:
 		# Timer and total bytes receive
 		self.timer = 0.0
 		self.totalDataRecvInBits = 0.0
-		
+
 	def createWidgets(self):
 		"""Build GUI."""
 		# Create Play button
@@ -282,6 +282,8 @@ class Client:
 		
 		# DESCRIBE request
 		elif requestCode == self.DESCRIBE:
+			self.descPort = 5555
+			threading.Thread(target=self.recvDescription).start()
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
@@ -289,6 +291,7 @@ class Client:
 			# Write the RTSP request to be sent
 			request = f"DESCRIBE {self.fileName} RTSP/1.0"
 			request += f"\nCSeq: {self.rtspSeq}"
+			request += f"\nDescPort: {self.descPort}"
 
 			# Keep track of the sent request
 			self.requestSent = self.DESCRIBE
@@ -296,7 +299,21 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
-	
+
+	def recvDescription(self):
+		description = ""
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as descSocket:
+			descSocket.bind(('', self.descPort))
+			descSocket.listen(5)
+			conn, addr = descSocket.accept()
+			with conn:
+				while True:
+					data = conn.recv(1024)
+					if not data:
+						break
+					description += data.decode('utf-8')
+		print(description)
+
 	def recvRtspReply(self):
 		"""Receive RTSP reply from the server."""
 		while True:
@@ -309,7 +326,7 @@ class Client:
 			if self.requestSent == self.TEARDOWN:
 				self.rtspSocket.shutdown(socket.SHUT_RDWR)
 				self.rtspSocket.close()
-				break
+				break		
 	
 	def parseRtspReply(self, data):
 		"""Parse the RTSP reply from the server."""
@@ -356,8 +373,7 @@ class Client:
 						# Flag the teardownAcked to close the socket
 						self.teardownAcked = 1
 					
-					elif self.requestSent == self.DESCRIBE:
-						pass
+					# elif self.requestSent == self.DESCRIBE:					
 	
 	def openRtpPort(self):
 		"""Open RTP socket binded to a specified port."""

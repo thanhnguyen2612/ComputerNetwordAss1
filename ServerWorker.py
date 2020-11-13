@@ -39,7 +39,7 @@ class ServerWorker:
 			if data:
 				print("Data received:\n" + data.decode("utf-8"))
 				self.processRtspRequest(data.decode("utf-8"))
-	
+
 	def processRtspRequest(self, data):
 		"""Process RTSP request sent from the client."""
 		# Get the request type
@@ -120,6 +120,10 @@ class ServerWorker:
 		# Process DESCRIBE request
 		elif requestType == self.DESCRIBE:
 			print("processing DESCRIBE\n")
+			self.clientInfo['description'] = self.getDescription(data)
+			self.clientInfo['descPort'] = request[2].split(' ')[1]
+			threading.Thread(target=self.sendDescription).start()
+
 			self.replyRtsp(self.OK_200, seq[1])
 
 	# # Testing packet loss function
@@ -160,6 +164,11 @@ class ServerWorker:
 	# 				except:
 	# 					print("Connection Error")
 	# 			break
+
+	def sendDescription(self):
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as descSocket:
+			descSocket.connect((self.clientInfo['rtspSocket'][1][0], int(self.clientInfo['descPort'])))
+			descSocket.sendall(self.clientInfo["description"].encode())
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
@@ -214,6 +223,6 @@ class ServerWorker:
 	def getDescription(self, data):
 		request = data.split('\n')
 		line1 = request[0].split(' ')
-		desc = f"v= {line1[2]}"
-		desc += f"\nu= {line1[1]}"
-		return desc
+		description = f"v= {line1[2]}"
+		description += f"\nu= {line1[1]}"
+		return description
