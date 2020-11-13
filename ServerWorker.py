@@ -10,6 +10,7 @@ class ServerWorker:
 	PAUSE = 'PAUSE'
 	STOP = 'STOP'
 	TEARDOWN = 'TEARDOWN'
+	DESCRIBE = 'DESCRIBE'
 	
 	INIT = 0
 	READY = 1
@@ -113,6 +114,11 @@ class ServerWorker:
 
 			# Close the RTP socket
 			self.clientInfo['rtpSocket'].close()
+		
+		# Process DESCRIBE request
+		elif requestType == self.DESCRIBE:
+			print("processing DESCRIBE\n")
+			self.replyRtsp(self.OK_200, seq[1])
 			
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
@@ -132,9 +138,6 @@ class ServerWorker:
 					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
 				except:
 					print("Connection Error")
-					#print('-'*60)
-					#traceback.print_exc(file=sys.stdout)
-					#print('-'*60)
 
 	def makeRtp(self, payload, frameNbr):
 		"""RTP-packetize the video data."""
@@ -166,3 +169,10 @@ class ServerWorker:
 			print("404 NOT FOUND")
 		elif code == self.CON_ERR_500:
 			print("500 CONNECTION ERROR")
+	
+	def getDescription(self, data):
+		request = data.split('\n')
+		line1 = request[0].split(' ')
+		desc = f"v= {line1[2]}"
+		desc += f"\nu= {line1[1]}"
+		return desc

@@ -61,13 +61,13 @@ class Client:
 		self.teardown.grid(row=1, column=2, padx=2, pady=2)
 
 		# Create Describe button
-		self.teardown = Button(self.master, width=20, padx=3, pady=3)
-		self.teardown["text"] = "Describe"
-		self.teardown["command"] =  self.getDescription
-		self.teardown.grid(row=1, column=2, padx=2, pady=2)
+		self.describe = Button(self.master, width=20, padx=3, pady=3)
+		self.describe["text"] = "Describe"
+		self.describe["command"] =  self.getDescription
+		self.describe.grid(row=1, column=3, padx=2, pady=2)
 		
 		# Create a label to display the movie
-		self.label = Label(self.master, height=19)
+		self.label = Label(self.master, height=20)
 		self.label.grid(row=0, column=0, columnspan=4, sticky=W+E+N+S, padx=5, pady=5)
 
 	def connectToServer(self):
@@ -104,10 +104,13 @@ class Client:
 	def exitClient(self):
 		"""Teardown button handler."""
 		self.sendRtspRequest(self.TEARDOWN)
-		# Delete cache file
-		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)
 		# Close GUI
 		self.master.destroy()
+		# Delete cache file
+		try:
+			os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)
+		except:
+			print("Error while deleting image cache file")
 	
 	def getDescription(self):
 		"""Describe button handler."""
@@ -137,9 +140,12 @@ class Client:
 
 				# If teardown, close the RTP socket
 				if self.teardownAcked == 1:
-					self.rtpSocket.shutdown(socket.SHUT_RDWR)
-					self.rtpSocket.close()
-					break
+					try:
+						self.rtpSocket.shutdown(socket.SHUT_RDWR)
+						self.rtpSocket.close()
+						break
+					except:
+						break
 	
 	######################### WRITE FRAME TO CACHE AND DISPLAY IMAGES AS MOVIE #####################
 	def writeFrame(self, data):
@@ -250,6 +256,7 @@ class Client:
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
 		
+		# DESCRIBE request
 		elif requestCode == self.DESCRIBE:
 
 			# Update RTSP sequence number
@@ -315,23 +322,21 @@ class Client:
 						
 					elif self.requestSent == self.STOP:
 						self.state = self.READY
+
+						# Reset frame number
 						self.frameNbr = 0
 
 					elif self.requestSent == self.TEARDOWN:
 						self.state = self.INIT
 
-						# Flag the teardownAcked to close the socket.
+						# Flag the teardownAcked to close the socket
 						self.teardownAcked = 1
 					
 					elif self.requestSent == self.DESCRIBE:
 						pass
-
 	
 	def openRtpPort(self):
 		"""Open RTP socket binded to a specified port."""
-		#-------------
-		# TO COMPLETE
-		#-------------
 		# Create a new datagram socket to receive RTP packets from the server
 		self.rtpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		
