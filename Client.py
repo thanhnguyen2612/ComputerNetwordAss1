@@ -2,6 +2,7 @@ from tkinter import *
 import tkinter.messagebox
 from PIL import Image, ImageTk
 import socket, threading, sys, traceback, os
+import time
 
 from RtpPacket import RtpPacket
 
@@ -39,6 +40,13 @@ class Client:
 		# Connect and automatically setup the movie
 		self.connectToServer()
 		self.setupMovie()
+
+		# Keep track of lost packet if any
+		self.lostPacket = 0
+
+		# Timer and total bytes receive
+		self.timer = 0.0
+		self.totalDataRecvInBits = 0.0
 		
 	def createWidgets(self):
 		"""Build GUI."""
@@ -118,16 +126,23 @@ class Client:
 		"""Listen for RTP packets."""
 		while True:
 			try:
+				tic = time.perf_counter() # Begin timing when start receiving data from server
 				data, addr = self.rtpSocket.recvfrom(20480)
 				if data:
+					toc = time.perf_counter() # Stop timing when successfully received data from server
+					self.timer += toc - tic
+
 					print("LISTENING...")
 					rtpPacket = RtpPacket()
 					rtpPacket.decode(data)
+					self.totalDataRecvInBits += len(rtpPacket.payload)
 					currFrameNbr = rtpPacket.seqNum()
 					print(f"CURRENT SEQUENCE NUMBER: {currFrameNbr}")
 
 					# Ignore late packets
 					if currFrameNbr > self.frameNbr:
+						if self.frameNbr + 1 != currFrameNbr: # Keep track of lost packet
+							self.lostPacket += (currFrameNbr - self.frameNbr) - 1
 						self.frameNbr = currFrameNbr
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
 			except:
@@ -212,6 +227,9 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
+
+			# Print video data rate at PAUSE moment
+			print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
 		
 		# STOP request
 		elif requestCode == self.STOP and not self.state == self.INIT:
@@ -249,6 +267,12 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
+
+			# Print packet statistic and video data rate
+			print(f"Packet loss: {self.lostPacket}")
+			print(f"Packet total: {self.frameNbr}")
+			print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
+			print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 		
 		elif requestCode == self.DESCRIBE:
 
