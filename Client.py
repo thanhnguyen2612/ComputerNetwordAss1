@@ -19,28 +19,30 @@ class Client:
 	PAUSE = 2
 	STOP = 3
 	TEARDOWN = 4
+	DESCRIBE = 5
 	
 	# Initiation..
 	def __init__(self, master, serveraddr, serverport, rtpport, filename):
 		self.master = master
 		self.master.protocol("WM_DELETE_WINDOW", self.handler)
 		self.createWidgets()
-		self.serverAddr = serveraddr
-		self.serverPort = int(serverport)
-		self.rtpPort = int(rtpport)
+		self.serverAddr = serveraddr			# IP address of the server
+		self.serverPort = int(serverport)		# Port number of the server
+		self.rtpPort = int(rtpport)				# Port number for RTP Packet Listener
 		self.fileName = filename
-		self.rtspSeq = 0
-		self.sessionId = 0
-		self.requestSent = -1
-		self.teardownAcked = 0
+		self.rtspSeq = 0						# Current request sequence number
+		self.sessionId = 0						# Client session ID
+		self.requestSent = -1					# Request code
+		self.teardownAcked = 0					# Flag to teardown all conections and stop client
+		self.frameNbr = 0						# The latest frame number
+
+		# Connect and automatically setup the movie
 		self.connectToServer()
-		self.frameNbr = 0
 		self.setupMovie()
 		
-	# THIS GUI IS JUST FOR REFERENCE ONLY, STUDENTS HAVE TO CREATE THEIR OWN GUI 	
 	def createWidgets(self):
 		"""Build GUI."""
-		# Create Play button		
+		# Create Play button
 		self.start = Button(self.master, width=20, padx=3, pady=3)
 		self.start["text"] = "Play"
 		self.start["command"] = self.playMovie
@@ -57,15 +59,44 @@ class Client:
 		self.teardown["text"] = "Stop"
 		self.teardown["command"] =  self.stopMovie
 		self.teardown.grid(row=1, column=2, padx=2, pady=2)
+
+		# Create Describe button
+		self.teardown = Button(self.master, width=20, padx=3, pady=3)
+		self.teardown["text"] = "Describe"
+		self.teardown["command"] =  self.getDescription
+		self.teardown.grid(row=1, column=2, padx=2, pady=2)
 		
 		# Create a label to display the movie
 		self.label = Label(self.master, height=19)
-		self.label.grid(row=0, column=0, columnspan=3, sticky=W+E+N+S, padx=5, pady=5) 
+		self.label.grid(row=0, column=0, columnspan=4, sticky=W+E+N+S, padx=5, pady=5)
 
+	def connectToServer(self):
+		"""Connect to the Server. Start a new RTSP/TCP session."""
+		self.rtspSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		try:
+			self.rtspSocket.connect((self.serverAddr, self.serverPort))
+		except:
+			tkinter.messagebox.showwarning("Connection Failed",
+									f"Connection to \'{self.serverAddr}\' failed.")
+	################################## HANDLER FUNCTION FOR BUTTONS ################################
 	def setupMovie(self):
 		"""Setup button handler."""
 		if self.state == self.INIT:
 			self.sendRtspRequest(self.SETUP)
+	
+	def playMovie(self):
+		"""Play button handler."""
+		if self.state == self.READY:
+			# Create thread to listen for RTP packets
+			threading.Thread(target=self.listenRtp).start()
+			self.playEvent = threading.Event()
+			self.playEvent.clear()
+			self.sendRtspRequest(self.PLAY)
+	
+	def pauseMovie(self):
+		"""Pause button handler."""
+		if self.state == self.PLAYING:
+			self.sendRtspRequest(self.PAUSE)
 	
 	def stopMovie(self):
 		self.sendRtspRequest(self.STOP)
@@ -77,21 +108,12 @@ class Client:
 		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)
 		# Close GUI
 		self.master.destroy()
+	
+	def getDescription(self):
+		"""Describe button handler."""
+		self.sendRtspRequest(self.DESCRIBE)
 
-	def pauseMovie(self):
-		"""Pause button handler."""
-		if self.state == self.PLAYING:
-			self.sendRtspRequest(self.PAUSE)
-	
-	def playMovie(self):
-		"""Play button handler."""
-		if self.state == self.READY:
-			# Create thread to listen for RTP packets
-			threading.Thread(target=self.listenRtp).start()
-			self.playEvent = threading.Event()
-			self.playEvent.clear()
-			self.sendRtspRequest(self.PLAY)
-	
+	############################### RTP PACKET LISTENER ############################################
 	def listenRtp(self):		
 		"""Listen for RTP packets."""
 		while True:
@@ -118,14 +140,13 @@ class Client:
 					self.rtpSocket.shutdown(socket.SHUT_RDWR)
 					self.rtpSocket.close()
 					break
-					
+	
+	######################### WRITE FRAME TO CACHE AND DISPLAY IMAGES AS MOVIE #####################
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
 		cachename = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
-
 		with open(cachename, "wb") as f:
 			f.write(data)
-
 		return cachename
 	
 	def updateMovie(self, imageFile):
@@ -133,16 +154,8 @@ class Client:
 		image = ImageTk.PhotoImage(Image.open(imageFile))
 		self.label.configure(image=image, height=288)
 		self.label.image = image
-		
-	def connectToServer(self):
-		"""Connect to the Server. Start a new RTSP/TCP session."""
-		self.rtspSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		try:
-			self.rtspSocket.connect((self.serverAddr, self.serverPort))
-		except:
-			tkinter.messagebox.showwarning("Connection Failed",
-									f"Connection to \'{self.serverAddr}\' failed.")
 	
+	################################################################################################
 	def sendRtspRequest(self, requestCode):
 		"""Send RTSP request to the server."""	
 		# SETUP request
@@ -236,6 +249,22 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
+		
+		elif requestCode == self.DESCRIBE:
+
+			# Update RTSP sequence number
+			self.rtspSeq += 1
+
+			# Write the RTSP request to be sent
+			request = f"DESCRIBE {self.fileName} RTSP/1.0"
+			request += f"\nCSeq: {self.rtspSeq}"
+
+			# Keep track of the sent request
+			self.requestSent = self.DESCRIBE
+
+			# Send the RTSP request using rtspSocket
+			self.rtspSocket.send(request.encode())
+			print("\nData Sent:\n" + request)
 	
 	def recvRtspReply(self):
 		"""Receive RTSP reply from the server."""
@@ -293,6 +322,9 @@ class Client:
 
 						# Flag the teardownAcked to close the socket.
 						self.teardownAcked = 1
+					
+					elif self.requestSent == self.DESCRIBE:
+						pass
 
 	
 	def openRtpPort(self):
