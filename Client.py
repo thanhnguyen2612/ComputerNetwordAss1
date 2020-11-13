@@ -36,6 +36,9 @@ class Client:
 		self.requestSent = -1					# Request code
 		self.teardownAcked = 0					# Flag to teardown all conections and stop client
 		self.frameNbr = 0						# The latest frame number
+		self.frameLenList = []
+		self.cachename = ""
+		self.currFrame = 0
 
 		# Connect and automatically setup the movie
 		self.connectToServer()
@@ -47,6 +50,9 @@ class Client:
 		# Timer and total bytes receive
 		self.timer = 0.0
 		self.totalDataRecvInBits = 0.0
+
+		self.time_list = []
+		self.time_error_list = []
 
 	def createWidgets(self):
 		"""Build GUI."""
@@ -86,6 +92,7 @@ class Client:
 		except:
 			tkinter.messagebox.showwarning("Connection Failed",
 									f"Connection to \'{self.serverAddr}\' failed.")
+
 	################################## HANDLER FUNCTION FOR BUTTONS ################################
 	def setupMovie(self):
 		"""Setup button handler."""
@@ -96,7 +103,9 @@ class Client:
 		"""Play button handler."""
 		if self.state == self.READY:
 			# Create thread to listen for RTP packets
+			# self.event = threading.Event()
 			threading.Thread(target=self.listenRtp).start()
+			threading.Thread(target=self.displayMovie).start()
 			self.playEvent = threading.Event()
 			self.playEvent.clear()
 			self.sendRtspRequest(self.PLAY)
@@ -108,6 +117,12 @@ class Client:
 	
 	def stopMovie(self):
 		self.sendRtspRequest(self.STOP)
+		# Delete cache file
+		try:
+			os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)
+			os.remove("imageFile")
+		except:
+			print("Error while deleting image cache file")
 	
 	def exitClient(self):
 		"""Teardown button handler."""
@@ -117,6 +132,7 @@ class Client:
 		# Delete cache file
 		try:
 			os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT)
+			os.remove("imageFile")
 		except:
 			print("Error while deleting image cache file")
 	
@@ -138,7 +154,10 @@ class Client:
 					print("LISTENING...")
 					rtpPacket = RtpPacket()
 					rtpPacket.decode(data)
-					self.totalDataRecvInBits += len(rtpPacket.payload)
+
+					frameLength = len(rtpPacket.getPayload())
+					self.totalDataRecvInBits += frameLength
+					
 					currFrameNbr = rtpPacket.seqNum()
 					print(f"CURRENT SEQUENCE NUMBER: {currFrameNbr}")
 
@@ -147,7 +166,8 @@ class Client:
 						if self.frameNbr + 1 != currFrameNbr: # Keep track of lost packet
 							self.lostPacket += (currFrameNbr - self.frameNbr) - 1
 						self.frameNbr = currFrameNbr
-						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
+						self.frameLenList.append(frameLength)
+						self.cachename = self.writeFrame(rtpPacket.getPayload())
 			except:
 				# Stop listening if PAUSE or TEARDOWN
 				if self.playEvent.isSet():
@@ -163,10 +183,28 @@ class Client:
 						break
 	
 	######################### WRITE FRAME TO CACHE AND DISPLAY IMAGES AS MOVIE #####################
+	def displayMovie(self):
+		while len(self.frameLenList) < 5:
+			continue
+
+		with open(self.cachename, 'rb') as f:
+			while self.currFrame < len(self.frameLenList):
+				# self.playEvent.wait(0.05)
+	
+				if self.playEvent.isSet():
+					break
+
+				with open("imagefile", "wb") as i:
+					f.seek(sum(self.frameLenList[:self.currFrame]))
+					i.write(f.read(self.frameLenList[self.currFrame]))
+
+				self.updateMovie("imagefile")
+				self.currFrame += 1
+
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
 		cachename = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
-		with open(cachename, "wb") as f:
+		with open(cachename, "ab") as f:
 			f.write(data)
 		return cachename
 	
@@ -218,6 +256,7 @@ class Client:
 		
 		# PAUSE request
 		elif requestCode == self.PAUSE and self.state == self.PLAYING:
+			self.event.set()
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
@@ -236,7 +275,7 @@ class Client:
 
 			# Print video data rate at PAUSE moment
 			print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
-		
+
 		# STOP request
 		elif requestCode == self.STOP and not self.state == self.INIT:
 
@@ -364,8 +403,10 @@ class Client:
 					elif self.requestSent == self.STOP:
 						self.state = self.READY
 
-						# Reset frame number
+						# Reset frame number and everything
 						self.frameNbr = 0
+						self.frameLenList = []
+						self.currFrame = 0
 
 					elif self.requestSent == self.TEARDOWN:
 						self.state = self.INIT

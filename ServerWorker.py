@@ -99,6 +99,7 @@ class ServerWorker:
 			print("processing STOP\n")
 			try:
 				self.clientInfo['videoStream'] = VideoStream(filename)
+				# threading.Thread(target=self.readVideoFile).start()
 				self.state = self.READY
 			except IOError:
 				self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
@@ -173,7 +174,7 @@ class ServerWorker:
 	def sendRtp(self):
 		"""Send RTP packets over UDP."""
 		while True:
-			self.clientInfo['event'].wait(0.05) 
+			self.clientInfo['event'].wait(0.05)
 			
 			# Stop sending if request is PAUSE or TEARDOWN
 			if self.clientInfo['event'].isSet(): 
@@ -226,3 +227,10 @@ class ServerWorker:
 		description = f"v= {line1[2]}"
 		description += f"\nu= {line1[1]}"
 		return description
+
+	# def readVideoFile(self):
+	# 	while True:
+	# 		data = self.clientInfo['videoStream'].nextFrame()
+	# 		if not data:
+	# 			break
+	# 		self.clientInfo['VideoArray'].append(data)
