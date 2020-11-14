@@ -235,7 +235,7 @@ class Client:
 			print("\nData Sent:\n" + request)
 		
 		# STOP request
-		elif requestCode == self.STOP and not self.state == self.INIT:
+		elif requestCode == self.STOP and not self.state == self.READY:
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
@@ -253,7 +253,7 @@ class Client:
 			print("\nData Sent:\n" + request)
 
 		# TEARDOWN request
-		elif requestCode == self.TEARDOWN and not self.state == self.INIT:
+		elif requestCode == self.TEARDOWN and not self.state == self.READY:
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
@@ -347,7 +347,6 @@ class Client:
 
 					elif self.requestSent == self.PAUSE:
 						# Print video data rate at PAUSE moment
-						print(f"Total play time: {self.timer}")
 						print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
 
 						self.state = self.READY
@@ -356,11 +355,12 @@ class Client:
 						
 					elif self.requestSent == self.STOP:
 						# Print packet statistic and video data rate
-						print(f"Total play time: {self.timer}")
 						print(f"Packet loss: {self.lostPacket}")
 						print(f"Packet total: {self.frameNbr}")
-						print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
-						print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
+						if self.frameNbr != 0:
+							print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
+						if self.timer != 0:
+							print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 
 						# Change state
 						self.state = self.READY
@@ -373,11 +373,12 @@ class Client:
 
 					elif self.requestSent == self.TEARDOWN:
 						# Print packet statistic and video data rate
-						print(f"Total play time: {self.timer}")
 						print(f"Packet loss: {self.lostPacket}")
 						print(f"Packet total: {self.frameNbr}")
-						print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
-						print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
+						if self.frameNbr != 0:
+							print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
+						if self.timer != 0:
+							print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 
 						# Flag the teardownAcked to close the socket
 						self.state = self.INIT
