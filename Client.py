@@ -253,7 +253,7 @@ class Client:
 			print("\nData Sent:\n" + request)
 
 		# TEARDOWN request
-		elif requestCode == self.TEARDOWN and not self.state == self.READY:
+		elif requestCode == self.TEARDOWN and not self.state == self.INIT:
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
