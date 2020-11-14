@@ -138,7 +138,7 @@ class Client:
 					print("LISTENING...")
 					rtpPacket = RtpPacket()
 					rtpPacket.decode(data)
-					self.totalDataRecvInBits += len(rtpPacket.payload)
+					self.totalDataRecvInBits += len(rtpPacket.getPayload())
 					currFrameNbr = rtpPacket.seqNum()
 					print(f"CURRENT SEQUENCE NUMBER: {currFrameNbr}")
 
@@ -233,9 +233,6 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
-
-			# Print video data rate at PAUSE moment
-			print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
 		
 		# STOP request
 		elif requestCode == self.STOP and not self.state == self.INIT:
@@ -255,7 +252,6 @@ class Client:
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
 
-
 		# TEARDOWN request
 		elif requestCode == self.TEARDOWN and not self.state == self.INIT:
 
@@ -273,16 +269,10 @@ class Client:
 			# Send the RTSP request using rtspSocket
 			self.rtspSocket.send(request.encode())
 			print("\nData Sent:\n" + request)
-
-			# Print packet statistic and video data rate
-			print(f"Packet loss: {self.lostPacket}")
-			print(f"Packet total: {self.frameNbr}")
-			print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
-			print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 		
 		# DESCRIBE request
 		elif requestCode == self.DESCRIBE:
-			self.descPort = 5555
+			self.descPort = 1024
 			threading.Thread(target=self.recvDescription).start()
 
 			# Update RTSP sequence number
@@ -353,27 +343,45 @@ class Client:
 						self.openRtpPort()
 
 					elif self.requestSent == self.PLAY:
-						 self.state = self.PLAYING
+						self.state = self.PLAYING
 
 					elif self.requestSent == self.PAUSE:
-						 self.state = self.READY
+						# Print video data rate at PAUSE moment
+						print(f"Total play time: {self.timer}")
+						print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
 
+						self.state = self.READY
 						# The play thread exits. A new thread is created on resume.
-						 self.playEvent.set()
+						self.playEvent.set()
 						
 					elif self.requestSent == self.STOP:
-						self.state = self.READY
+						# Print packet statistic and video data rate
+						print(f"Total play time: {self.timer}")
+						print(f"Packet loss: {self.lostPacket}")
+						print(f"Packet total: {self.frameNbr}")
+						print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
+						print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 
-						# Reset frame number
+						# Change state
+						self.state = self.READY
+						
+						# Reset everything
 						self.frameNbr = 0
+						self.timer = 0.0
+						self.lostPacket = 0
+						self.totalDataRecvInBits = 0
 
 					elif self.requestSent == self.TEARDOWN:
-						self.state = self.INIT
+						# Print packet statistic and video data rate
+						print(f"Total play time: {self.timer}")
+						print(f"Packet loss: {self.lostPacket}")
+						print(f"Packet total: {self.frameNbr}")
+						print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
+						print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
 
 						# Flag the teardownAcked to close the socket
+						self.state = self.INIT
 						self.teardownAcked = 1
-					
-					# elif self.requestSent == self.DESCRIBE:					
 	
 	def openRtpPort(self):
 		"""Open RTP socket binded to a specified port."""

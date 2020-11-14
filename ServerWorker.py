@@ -102,6 +102,7 @@ class ServerWorker:
 				self.state = self.READY
 			except IOError:
 				self.replyRtsp(self.FILE_NOT_FOUND_404, seq[1])
+
 			self.clientInfo['event'].set()
 			self.replyRtsp(self.OK_200, seq[1])
 
@@ -126,7 +127,31 @@ class ServerWorker:
 
 			self.replyRtsp(self.OK_200, seq[1])
 
-	# # Testing packet loss function
+	def sendDescription(self):
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as descSocket:
+			descSocket.connect((self.clientInfo['rtspSocket'][1][0], int(self.clientInfo['descPort'])))
+			descSocket.sendall(self.clientInfo["description"].encode())
+			
+	def sendRtp(self):
+		"""Send RTP packets over UDP."""
+		while True:
+			self.clientInfo['event'].wait(0.05) 
+			
+			# Stop sending if request is PAUSE or TEARDOWN
+			if self.clientInfo['event'].isSet(): 
+				break 
+				
+			data = self.clientInfo['videoStream'].nextFrame()
+			if data:
+				frameNumber = self.clientInfo['videoStream'].frameNbr()
+				try:
+					address = self.clientInfo['rtspSocket'][1][0]
+					port = int(self.clientInfo['rtpPort'])
+					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
+				except:
+					print("Connection Error")
+
+	# Testing packet loss function
 	# def sendRtp(self):
 	# 	"""Send RTP packets over UDP."""
 	# 	late_packet = []
@@ -164,30 +189,6 @@ class ServerWorker:
 	# 				except:
 	# 					print("Connection Error")
 	# 			break
-
-	def sendDescription(self):
-		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as descSocket:
-			descSocket.connect((self.clientInfo['rtspSocket'][1][0], int(self.clientInfo['descPort'])))
-			descSocket.sendall(self.clientInfo["description"].encode())
-			
-	def sendRtp(self):
-		"""Send RTP packets over UDP."""
-		while True:
-			self.clientInfo['event'].wait(0.05) 
-			
-			# Stop sending if request is PAUSE or TEARDOWN
-			if self.clientInfo['event'].isSet(): 
-				break 
-				
-			data = self.clientInfo['videoStream'].nextFrame()
-			if data: 
-				frameNumber = self.clientInfo['videoStream'].frameNbr()
-				try:
-					address = self.clientInfo['rtspSocket'][1][0]
-					port = int(self.clientInfo['rtpPort'])
-					self.clientInfo['rtpSocket'].sendto(self.makeRtp(data, frameNumber),(address,port))
-				except:
-					print("Connection Error")
 
 	def makeRtp(self, payload, frameNbr):
 		"""RTP-packetize the video data."""
