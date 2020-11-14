@@ -347,7 +347,7 @@ class Client:
 
 					elif self.requestSent == self.PAUSE:
 						# Print video data rate at PAUSE moment
-						print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bps")
+						print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bits per second")
 
 						self.state = self.READY
 						# The play thread exits. A new thread is created on resume.
@@ -360,7 +360,7 @@ class Client:
 						if self.frameNbr != 0:
 							print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
 						if self.timer != 0:
-							print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
+							print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bits per second")
 
 						# Change state
 						self.state = self.READY
@@ -378,7 +378,7 @@ class Client:
 						if self.frameNbr != 0:
 							print(f"Packet loss rate: {self.lostPacket/self.frameNbr}")
 						if self.timer != 0:
-							print(f"Video data rate: {self.totalDataRecvInBits/self.timer}bps")
+							print(f"Video data rate: {self.totalDataRecvInBits/self.timer} bits per second")
 
 						# Flag the teardownAcked to close the socket
 						self.state = self.INIT
