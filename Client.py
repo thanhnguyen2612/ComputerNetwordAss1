@@ -235,7 +235,8 @@ class Client:
 			print("\nData Sent:\n" + request)
 		
 		# STOP request
-		elif requestCode == self.STOP and not self.state == self.READY:
+		elif (requestCode == self.STOP and not self.state == self.READY) or\
+			 (self.requestSent == self.PAUSE and self.state == self.READY):
 
 			# Update RTSP sequence number
 			self.rtspSeq += 1
